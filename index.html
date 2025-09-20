@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>潮汐預報報告產生器</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+</head>
+<body class="bg-light">
+
+    <main class="container py-4">
+        <div class="card">
+            <div class="card-header">
+                <h1 class="h3 mb-0">潮汐預報報告產生器</h1>
+            </div>
+            <div class="card-body">
+                <p class="card-text">此工具根據提供的調和參數檔案，產生指定年份的年度潮汐預報報告，並可與觀測資料進行視覺化比較。</p>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="paramFile" class="form-label">1. 選擇調和參數檔案 (.txt):</label>
+                        <input type="file" class="form-control" id="paramFile" accept=".txt">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="yearInput" class="form-label">2. 輸入西元年份:</label>
+                        <input type="number" class="form-control" id="yearInput" value="2013" placeholder="例如: 2013">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="stationNameInput" class="form-label">3. 測站名稱:</label>
+                        <input type="text" class="form-control" id="stationNameInput" value="紐澳良站">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="stationCodeInput" class="form-label">4. 測站代碼:</label>
+                        <input type="text" class="form-control" id="stationCodeInput" value="8766072">
+                    </div>
+                    <div class="col-12">
+                        <label for="obsFile" class="form-label">5. (可選) 選擇觀測資料檔案 (.csv):</label>
+                        <input type="file" class="form-control" id="obsFile" accept=".csv">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">6. 選擇輸出項目:</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="outputOptions" id="reportOnly" value="report" checked>
+                            <label class="form-check-label" for="reportOnly">僅產生報告</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="outputOptions" id="chartOnly" value="chart">
+                            <label class="form-check-label" for="chartOnly">僅產生圖表</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="outputOptions" id="reportAndChart" value="both">
+                            <label class="form-check-label" for="reportAndChart">報告與圖表</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button id="sampleAnalyzeBtn" class="btn btn-info">使用範例資料一鍵分析</button>
+                    <span class="text-muted mx-2 align-middle">|</span>
+                    <button id="generateBtn" class="btn btn-primary">產生報告</button>                    
+                    <a id="downloadLink" href="#" download="AnnualReport.txt" class="btn btn-success" style="display: none;">下載報告</a>
+                </div>
+                
+                <div id="status" class="alert alert-secondary mt-3" role="alert" style="white-space: pre-wrap;">
+                    請填寫以上欄位並點擊「產生報告」。
+                </div>
+            </div>
+        </div>
+
+        <div id="summaryContainer" class="card mt-4" style="display: none;">
+            <div class="card-header">
+                <h2 class="h5 mb-0">觀測期間數據摘要</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div id="obsSummaryCard" class="col-6">
+                        <h5 class="card-title">觀測值 (Observed)</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <span>最高潮位</span>
+                                <div class="text-end">
+                                    <span id="obsMaxVal" class="badge bg-danger rounded-pill"></span>
+                                    <small id="obsMaxTime" class="d-block text-muted"></small>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <span>最低潮位</span>
+                                <div class="text-end">
+                                    <span id="obsMinVal" class="badge bg-primary rounded-pill"></span>
+                                    <small id="obsMinTime" class="d-block text-muted"></small>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                平均潮位
+                                <span id="obsAvg" class="badge bg-secondary rounded-pill"></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                最大漲潮差
+                                <span id="obsMaxFloodRange" class="badge bg-info text-dark rounded-pill"></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                最大落潮差
+                                <span id="obsMaxEbbRange" class="badge bg-info text-dark rounded-pill"></span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div id="predSummaryCard" class="col-6">
+                        <h5 class="card-title">預測值 (Predicted)</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <span>最高潮位</span>
+                                <div class="text-end">
+                                    <span id="predMaxVal" class="badge bg-danger rounded-pill"></span>
+                                    <small id="predMaxTime" class="d-block text-muted mb-1"></small>
+                                    <small id="predMaxValDiff" class="d-block text-info fw-bold"></small>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <span>最低潮位</span>
+                                <div class="text-end">
+                                    <span id="predMinVal" class="badge bg-primary rounded-pill"></span>
+                                    <small id="predMinTime" class="d-block text-muted mb-1"></small>
+                                    <small id="predMinValDiff" class="d-block text-info fw-bold"></small>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                平均潮位
+                                <div class="text-end">
+                                    <span id="predAvg" class="badge bg-secondary rounded-pill"></span>
+                                    <small id="predAvgDiff" class="d-block text-info fw-bold"></small>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                最大漲潮差
+                                <span id="predMaxFloodRange" class="badge bg-info text-dark rounded-pill"></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                最大落潮差
+                                <span id="predMaxEbbRange" class="badge bg-info text-dark rounded-pill"></span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="chartContainer" class="card mt-4" style="display: none;">
+            <div class="card-header">
+                <h2 class="h5 mb-0">圖表比較 (<span id="rmseValue"></span>)</h2>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-label mb-0">圖表操作:</label>
+                        <div class="d-flex gap-2">
+                            <button id="panLeftBtn" class="btn btn-outline-secondary btn-sm" style="display: none;">← 平移</button>
+                            <button id="panRightBtn" class="btn btn-outline-secondary btn-sm" style="display: none;">平移 →</button>
+                            <button id="downloadChartBtn" class="btn btn-success btn-sm" style="display: none;">下載圖表 (PNG)</button>
+                            <button id="resetZoomBtn" class="btn btn-outline-secondary btn-sm" style="display: none;">重設縮放</button>
+                        </div>
+                    </div>
+                    <div class="form-text mt-1" style="display: none;">提示：您可以使用滑鼠滾輪進行縮放，並按住拖曳來平移時間軸。數據摘要將根據您縮放的範圍動態更新。</div>
+                </div>
+                <div style="position: relative; height:400px">
+                    <canvas id="tideChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="py-3 my-4">
+        <p class="text-center text-muted border-top pt-3">
+            © 2024 Tide Analysis Project. All Rights Reserved.
+        </p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <script src="tide_pred.js"></script>
+</body>
+</html>
