@@ -1,6 +1,6 @@
-# 潮汐預報與分析工具 (Tide Prediction and Analysis Tool)
+# 潮汐預報工具 (Tide Prediction Tool)
 
-這是一個基於網頁的潮汐預報與分析工具，它使用調和分析法 (Harmonic Analysis) 來預測指定年份的潮位，並可將預測結果與實際觀測資料進行視覺化比較與分析。
+這是一個基於網頁的潮汐預報工具，它使用潮汐調和參數來預測指定年份的潮位，並可將預測結果與實際觀測資料進行視覺化比較與分析。
 
 ## 專案目的
 
@@ -131,4 +131,5 @@
     git remote add origin https://github.com/您的使用者名稱/您的儲存庫名稱.git
     git branch -M main
     git push -u origin main
+
     ```
